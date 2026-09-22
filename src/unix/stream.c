@@ -1567,6 +1567,9 @@ int uv___stream_fd(const uv_stream_t* handle) {
 void uv__stream_close(uv_stream_t* handle) {
   unsigned int i;
   uv__stream_queued_fds_t* queued_fds;
+  int fd;
+
+  fd = uv__stream_fd(handle);
 
 #if defined(__APPLE__)
   /* Terminate select loop first */
@@ -1581,7 +1584,6 @@ void uv__stream_close(uv_stream_t* handle) {
     uv_thread_join(&s->thread);
     uv_sem_destroy(&s->close_sem);
     uv_sem_destroy(&s->async_sem);
-    uv__close(s->fake_fd);
     uv__close(s->int_fd);
     uv_close((uv_handle_t*) &s->async, uv__stream_osx_cb_close);
 
@@ -1595,9 +1597,12 @@ void uv__stream_close(uv_stream_t* handle) {
   handle->flags &= ~(UV_HANDLE_READABLE | UV_HANDLE_WRITABLE);
 
   if (handle->io_watcher.fd != -1) {
+    /* The select fallback's socket is owned even if it occupies fd 0-2. */
+    if (handle->io_watcher.fd != fd)
+      uv__close_nocheckstdio(handle->io_watcher.fd);
     /* Don't close stdio file descriptors.  Nothing good comes from it. */
-    if (handle->io_watcher.fd > STDERR_FILENO)
-      uv__close(handle->io_watcher.fd);
+    if (fd > STDERR_FILENO)
+      uv__close(fd);
     handle->io_watcher.fd = -1;
   }
 

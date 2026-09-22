@@ -354,7 +354,7 @@ void uv__tty_close(uv_tty_t* handle) {
   int expected;
   int fd;
 
-  fd = handle->io_watcher.fd;
+  fd = uv__stream_fd(handle);
   if (fd == -1)
     goto done;
 
